@@ -31,17 +31,24 @@ use LibreNMS\RRD\RrdDefinition;
 $ss = snmpwalk_cache_oid($device, 'systemStats', array(), 'UCD-SNMP-MIB');
 $ss = $ss[0];
 
-if (is_numeric($ss['ssCpuRawUser']) && is_numeric($ss['ssCpuRawNice']) && is_numeric($ss['ssCpuRawSystem']) && is_numeric($ss['ssCpuRawIdle'])) {
+// If ssCpuRawSteal is not available then create a dummy one with zero value
+if (is_null($ss['ssCpuRawSteal'])) {
+    $ss['ssCpuRawSteal'] = 0;
+}
+
+if (is_numeric($ss['ssCpuRawUser']) && is_numeric($ss['ssCpuRawNice']) && is_numeric($ss['ssCpuRawSystem']) && is_numeric($ss['ssCpuRawSteal']) && is_numeric($ss['ssCpuRawIdle'])) {
     $rrd_def = RrdDefinition::make()
         ->addDataset('user', 'COUNTER', 0)
         ->addDataset('system', 'COUNTER', 0)
         ->addDataset('nice', 'COUNTER', 0)
+        ->addDataset('steal', 'COUNTER', 0)
         ->addDataset('idle', 'COUNTER', 0);
 
     $fields = array(
         'user'    => $ss['ssCpuRawUser'],
         'system'  => $ss['ssCpuRawSystem'],
         'nice'    => $ss['ssCpuRawNice'],
+        'steal'   => $ss['ssCpuRawSteal'],
         'idle'    => $ss['ssCpuRawIdle'],
     );
 
@@ -56,6 +63,7 @@ $collect_oids = array(
     'ssCpuRawUser',
     'ssCpuRawNice',
     'ssCpuRawSystem',
+    'ssCpuRawSteal',
     'ssCpuRawIdle',
     'ssCpuRawInterrupt',
     'ssCpuRawSoftIRQ',

@@ -38,6 +38,12 @@ if (in_array($device['os'], array("linux", "endian", "proxmox", "recoveryos"))) 
         $features = str_replace("\"", "", snmp_get($device, ".1.3.6.1.4.1.2021.7890.1.101.1", "-Oqv", "UCD-SNMP-MIB"));
     }
 
+    if (!$features) { # No "extend" support, try "unix-agent" support
+        if (isset($agent_data['distro'])) {
+          $features = $agent_data['distro'];
+        }
+    }
+
     # Detect Dell hardware via OpenManage SNMP
     $hw = snmp_get($device, ".1.3.6.1.4.1.674.10892.1.300.10.1.9.1", "-Oqv", "MIB-Dell-10892");
     $hw = trim(str_replace("\"", "", $hw));

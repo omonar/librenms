@@ -2,6 +2,9 @@
 
 use LibreNMS\RRD\RrdDefinition;
 
+//define("NET_SSH2_LOGGING", 2);
+//define("LOG_REALTIME_FILENAME", "/opt/librenms/logs/sshdebug.".$device['hostname'].".log");
+
 if ($device['os_group'] == 'unix') {
     echo \LibreNMS\Config::get('project_name') . ' UNIX Agent: ';
 
@@ -11,28 +14,85 @@ if ($device['os_group'] == 'unix') {
     }
 
     $agent_start = microtime(true);
-    $agent = fsockopen($device['hostname'], $agent_port, $errno, $errstr, \LibreNMS\Config::get('unix-agent.connection-timeout'));
 
-    // Set stream timeout (for timeouts during agent  fetch
-    stream_set_timeout($agent, \LibreNMS\Config::get('unix-agent.read-timeout'));
-    $agentinfo = stream_get_meta_data($agent);
+    // RSA signature verification is much faster than ECDSA signature verification
+    // Use RSA keys for SSH authentication with private keys
+    $identity_key = new LibreNMS\Crypt\RSA();
+    if (file_exists("/opt/librenms/ssh/id_rsa")) {
+      $identity_key->loadKey(file_get_contents("/opt/librenms/ssh/id_rsa"));
+    }
 
-    if (!$agent) {
-        echo 'Connection to UNIX agent failed on port '.$agent_port.'.';
-    } else {
-        // fetch data while not eof and not timed-out
-        while ((!feof($agent)) && (!$agentinfo['timed_out'])) {
-            $agent_raw .= fgets($agent, 128);
-            $agentinfo  = stream_get_meta_data($agent);
+    $connection = new LibreNMS\Net\SSH2($device['hostname'], $agent_port, 10);
+    $connection->enableQuietMode();
+    $host_key = $connection->getServerPublicHostKey();
+
+    if ($connection->signature_validated) {
+      echo("\r\n"."Host key:   ".$host_key);
+
+      $stored_host_key = get_dev_attrib($device, 'host_public_key');
+
+      if (empty($stored_host_key)) {
+        // Store host public key on first connection attempt
+        set_dev_attrib($device, 'host_public_key', $host_key);
+        // Delete attribute if it was set
+        del_dev_attrib($device, 'host_id_changed');
+      } else {
+        echo("\r\n"."Stored key: ".$stored_host_key);
+
+        if (strcmp($host_key, $stored_host_key)) {
+          logfile("SSH connection to unix agent: Remote host identification has changed!");
+
+          if (get_dev_attrib($device, 'host_id_changed') === NULL) {
+            set_dev_attrib($device, 'host_id_changed', time());
+          }
+        } else {
+            del_dev_attrib($device, 'host_id_changed');
         }
+      }
 
-        if ($agentinfo['timed_out']) {
-            echo 'Connection to UNIX agent timed out during fetch on port '.$agent_port.'.';
+      echo("\r\n");
+
+      if ($connection->login("root", $identity_key)) {
+        $agent_raw = $connection->exec("/usr/bin/check_mk_agent");
+        if (strpos($agent_raw, '<<<check_mk>>>') === false) {
+          // This is for LibreElec
+          $agent_raw = $connection->exec("/storage/librenms/check_mk_agent");
         }
+      }
+    }
+
+    if (strpos($agent_raw, '<<<check_mk>>>') === false) {
+      $agent = fsockopen($device['hostname'], $agent_port, $errno, $errstr, \LibreNMS\Config::get('unix-agent.connection-timeout'));
+
+      // Set stream timeout (for timeouts during agent  fetch
+      stream_set_timeout($agent, \LibreNMS\Config::get('unix-agent.read-timeout'));
+      $agentinfo = stream_get_meta_data($agent);
+
+      if (!$agent) {
+          echo 'Connection to UNIX agent failed on port '.$agent_port.'.';
+      } else {
+          // fetch data while not eof and not timed-out
+          while ((!feof($agent)) && (!$agentinfo['timed_out'])) {
+              $agent_raw .= fgets($agent, 128);
+              $agentinfo  = stream_get_meta_data($agent);
+          }
+
+          if ($agentinfo['timed_out']) {
+              echo 'Connection to UNIX agent timed out during fetch on port '.$agent_port.'.';
+          }
+      }
+
     }
 
     $agent_end  = microtime(true);
     $agent_time = round(($agent_end - $agent_start) * 1000);
+
+    if (defined('NET_SSH2_LOGGING') && defined('LOG_REALTIME_FILENAME')) {
+      $ssh_connection_log = $connection->getLog();
+      $fp = fopen(LOG_REALTIME_FILENAME, 'w');
+      fputs($fp, $ssh_connection_log);
+      fclose($fp);
+    }
 
     if (!empty($agent_raw)) {
         echo 'execution time: '.$agent_time.'ms';
@@ -51,6 +111,7 @@ if ($device['os_group'] == 'unix') {
             "apache",
             "bind",
             "ceph",
+            "hls",
             "mysql",
             "nginx",
             "powerdns",

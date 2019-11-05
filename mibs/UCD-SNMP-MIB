@@ -1348,6 +1348,16 @@ ssRawSwapOut OBJECT-TYPE
         "Number of blocks swapped out"
     ::= { systemStats 63 }
 
+ssCpuRawSteal OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of ticks (typically 1/100s) spent by the hypervisor
+        code to run other VMs even though the CPUT in the current VM had
+        something runnable."
+    ::= { systemStats 64 }
+
 -- possibly used in the future:
 --
 -- ssErrorFlag OBJECT-TYPE
