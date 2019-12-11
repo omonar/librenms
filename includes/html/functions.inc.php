@@ -1443,6 +1443,20 @@ function parse_at_time($time)
         return time() + $offset;
     }
 
+    if (preg_match('/^end[+-]\d+[hwmy]$/', $time)) {
+        $units = [
+            'h' => 3600,
+            'w' => 604800,
+            'm' => 2678400,
+            'y' => 31536000,
+        ];
+        $value = substr($time, 4, -1);
+        $unit = substr($time, -1);
+
+        $offset = ($time[3] == '-' ? -1 : 1) * $units[$unit] * $value;
+        return time() + $offset;
+    }
+
     return (int)strtotime($time);
 }
 
