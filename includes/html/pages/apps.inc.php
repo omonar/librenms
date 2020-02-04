@@ -306,6 +306,7 @@ $graphs['asterisk'] = array(
     'calls',
     'channels',
     'sip',
+    'iax2',
 );
 $graphs['hls'] = array(
     'multi_video',
