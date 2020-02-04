@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Device;
 use LibreNMS\RRD\RrdDefinition;
 
 //define("NET_SSH2_LOGGING", 2);
@@ -14,6 +15,7 @@ if ($device['os_group'] == 'unix') {
     }
 
     $agent_start = microtime(true);
+<<<<<<< HEAD
 
     // RSA signature verification is much faster than ECDSA signature verification
     // Use RSA keys for SSH authentication with private keys
@@ -47,6 +49,22 @@ if ($device['os_group'] == 'unix') {
           }
         } else {
             del_dev_attrib($device, 'host_id_changed');
+=======
+    $polling_target = Device::pollingTarget($device['hostname']);
+    $agent = fsockopen($polling_target, $agent_port, $errno, $errstr, \LibreNMS\Config::get('unix-agent.connection-timeout'));
+
+    // Set stream timeout (for timeouts during agent  fetch
+    stream_set_timeout($agent, \LibreNMS\Config::get('unix-agent.read-timeout'));
+    $agentinfo = stream_get_meta_data($agent);
+
+    if (!$agent) {
+        echo 'Connection to UNIX agent failed on port '.$agent_port.'.';
+    } else {
+        // fetch data while not eof and not timed-out
+        while ((!feof($agent)) && (!$agentinfo['timed_out'])) {
+            $agent_raw .= fgets($agent, 128);
+            $agentinfo  = stream_get_meta_data($agent);
+>>>>>>> 7950893cd1253c4a6faff41d7638b44183e85390
         }
       }
 
