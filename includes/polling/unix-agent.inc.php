@@ -23,7 +23,8 @@ if ($device['os_group'] == 'unix') {
       $identity_key->loadKey(file_get_contents("/opt/librenms/ssh/id_rsa"));
     }
 
-    $connection = new LibreNMS\Net\SSH2($device['hostname'], $agent_port, 10);
+    $poller_target = Device::pollerTarget($device['hostname']);
+    $connection = new LibreNMS\Net\SSH2($poller_target, $agent_port, 10);
     $connection->enableQuietMode();
     $host_key = $connection->getServerPublicHostKey();
 
@@ -63,7 +64,7 @@ if ($device['os_group'] == 'unix') {
     }
 
     if (strpos($agent_raw, '<<<check_mk>>>') === false) {
-      $agent = fsockopen($device['hostname'], $agent_port, $errno, $errstr, \LibreNMS\Config::get('unix-agent.connection-timeout'));
+      $agent = fsockopen($poller_target, $agent_port, $errno, $errstr, \LibreNMS\Config::get('unix-agent.connection-timeout'));
 
       // Set stream timeout (for timeouts during agent  fetch
       stream_set_timeout($agent, \LibreNMS\Config::get('unix-agent.read-timeout'));
