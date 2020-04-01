@@ -106,19 +106,26 @@ class Device extends BaseModel
     /**
      * Returns IP/Hostname where polling will be targeted to
      *
-     * @param string $hostname hostname which will be triggered
+     * @param string $device hostname which will be triggered
+     *        array  $device associative array with device data
      * @return string IP/Hostname to which Device polling is targeted
      */
-    public static function pollerTarget($hostname)
+    public static function pollerTarget($device)
     {
-        $ret = static::where('hostname', $hostname)->first(['hostname', 'overwrite_ip']);
-        if (empty($ret)) {
-            return $hostname;
+        if (! is_array($device)) {
+            $ret = static::where('hostname', $device)->first(['hostname', 'overwrite_ip']);
+            if (empty($ret)) {
+                return $device;
+            }
+            $overwrite_ip = $ret->overwrite_ip;
+            $hostname = $ret->hostname;
+        } elseif (array_key_exists('overwrite_ip', $device)) {
+            $overwrite_ip = $device['overwrite_ip'];
+            $hostname = $device['hostname'];
+        } else {
+            return $device['hostname'];
         }
-        $_overwrite_ip = $ret->overwrite_ip;
-        $_hostname = $ret->hostname;
-
-        return $_overwrite_ip ?: $_hostname;
+        return $overwrite_ip ?: $hostname;
     }
 
     public static function findByIp($ip)
@@ -532,6 +539,14 @@ class Device extends BaseModel
         return $query->where([
             ['disable_notify', '=', 0],
             ['disabled', '=', 0]
+        ]);
+    }
+
+    public function scopeWhereUptime($query, $uptime, $modifier = '<')
+    {
+        return $query->where([
+            ['uptime', '>', 0],
+            ['uptime', $modifier, $uptime]
         ]);
     }
 

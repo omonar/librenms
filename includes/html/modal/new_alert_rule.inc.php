@@ -13,6 +13,16 @@
  */
 
 use LibreNMS\Alerting\QueryBuilderFilter;
+use LibreNMS\Config;
+
+$default_severity = Config::get('alert_rule.severity');
+$default_max_alerts = Config::get('alert_rule.max_alerts');
+$default_delay = Config::get('alert_rule.delay') . 'm';
+$default_interval = Config::get('alert_rule.interval') . 'm';
+$default_mute_alerts = Config::get('alert_rule.mute_alerts');
+$default_invert_rule_match = Config::get('alert_rule.invert_rule_match');
+$default_recovery_alerts = Config::get('alert_rule.recovery_alerts');
+$default_invert_map = Config::get('alert_rule.invert_map');
 
 if (Auth::user()->hasGlobalAdmin()) {
     $filters = json_encode(new QueryBuilderFilter('alert'));
@@ -25,7 +35,7 @@ if (Auth::user()->hasGlobalAdmin()) {
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                    <h5 class="modal-title" id="Create">Alert Rule :: <a href="https://docs.librenms.org/Alerting/"><i class="fa fa-book fa-1x"></i> Docs</a> </h5>
+                    <h5 class="modal-title" id="Create">Alert Rule :: <a target="_blank" href="https://docs.librenms.org/Alerting/"><i class="fa fa-book fa-1x"></i> Docs</a> </h5>
                 </div>
                 <div class="modal-body">
                     <ul class="nav nav-tabs" role="tablist">
@@ -62,6 +72,7 @@ if (Auth::user()->hasGlobalAdmin()) {
                                                 <li><a href="#" name="import-query" id="import-query">SQL Query</a></li>
                                                 <li><a href="#" name="import-old-format" id="import-old-format">Old Format</a></li>
                                                 <li><a href="#" name="import-collection" id="import-collection">Collection</a></li>
+                                                <li><a href="#" name="import-alert_rule" id="import-alert_rule">Alert Rule</a></li>
                                             </ul>
                                         </div>
                                     </div>
@@ -110,7 +121,7 @@ if (Auth::user()->hasGlobalAdmin()) {
                                     </div>
                                 </div>
                                 <div class="form-group form-inline">
-                                    <label for='maps' class='col-sm-3 col-md-2 control-label' title="Restricts this alert rule to the selected devices and groups.">Match devices and groups list: </label>
+                                    <label for='maps' class='col-sm-3 col-md-2 control-label' title="Restricts this alert rule to the selected devices, groups and locations.">Match devices, groups and locations list: </label>
                                     <div class="col-sm-7" style="width: 56%;">
                                         <select id="maps" name="maps[]" class="form-control" multiple="multiple"></select>
                                     </div>
@@ -160,7 +171,6 @@ if (Auth::user()->hasGlobalAdmin()) {
         </div>
     </div>
 
-
     <script src="js/sql-parser.min.js"></script>
     <script src="js/query-builder.standalone.min.js"></script>
     <script>
@@ -184,7 +194,7 @@ if (Auth::user()->hasGlobalAdmin()) {
 
             filters: <?php echo $filters; ?>,
             operators: [
-                'equal', 'not_equal', 'between', 'not_between', 'begins_with', 'not_begins_with', 'contains', 'not_contains', 'ends_with', 'not_ends_with', 'is_empty', 'is_not_empty', 'is_null', 'is_not_null',
+                'equal', 'not_equal', 'between', 'not_between', 'begins_with', 'not_begins_with', 'contains', 'not_contains', 'ends_with', 'not_ends_with', 'is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'in', 'not_in',
                 {type: 'less', nb_inputs: 1, multiple: false, apply_to: ['string', 'number', 'datetime']},
                 {type: 'less_or_equal', nb_inputs: 1, multiple: false, apply_to: ['string', 'number', 'datetime']},
                 {type: 'greater', nb_inputs: 1, multiple: false, apply_to: ['string', 'number', 'datetime']},
@@ -272,6 +282,11 @@ if (Auth::user()->hasGlobalAdmin()) {
             $("#search_rule_modal").modal('show');
         });
 
+        $('#import-alert_rule').on('click', function (e) {
+            e.preventDefault();
+            $("#search_alert_rule_modal").modal('show');
+        });
+
         $('#create-alert').on('show.bs.modal', function(e) {
             //get data-id attribute of the clicked element
             var rule_id = $(e.relatedTarget).data('rule_id');
@@ -292,22 +307,23 @@ if (Auth::user()->hasGlobalAdmin()) {
                 $("#builder").queryBuilder("reset");
                 var $severity = $('#severity');
                 $severity.val($severity.find("option[selected]").val());
-                $("#mute").bootstrapSwitch('state', false);
-                $("#invert").bootstrapSwitch('state', false);
-                $("#recovery").bootstrapSwitch('state', true);
+                $("#mute").bootstrapSwitch('state', <?=$default_mute_alerts?>);
+                $("#invert").bootstrapSwitch('state', <?=$default_invert_rule_match?>);
+                $("#recovery").bootstrapSwitch('state', <?=$default_recovery_alerts?>);
                 $("#override_query").bootstrapSwitch('state', false);
-                $("#invert_map").bootstrapSwitch('state', false);
+                $("#invert_map").bootstrapSwitch('state', <?=$default_invert_map?>);
                 $(this).find("input[type=text]").val("");
-                $('#count').val('-1');
-                $('#delay').val('1m');
-                $('#interval').val('5m');
+                $('#count').val('<?=$default_max_alerts?>');
+                $('#delay').val('<?=$default_delay?>');
+                $('#interval').val('<?=$default_interval?>');
                 $('#adv_query').val('');
+                $('#severity').val('<?=$default_severity?>');
 
                 var $maps = $('#maps');
                 $maps.empty();
                 $maps.val(null).trigger('change');
                 setRuleDevice();// pre-populate device in the maps if this is a per-device rule
-                
+
                 var $transports = $("#transports");
                 $transports.empty();
                 $transports.val(null).trigger('change');
@@ -373,7 +389,7 @@ if (Auth::user()->hasGlobalAdmin()) {
                 $("[name='mute']").bootstrapSwitch('state', extra.mute);
                 $("[name='invert']").bootstrapSwitch('state', extra.invert);
                 if (typeof extra.recovery == 'undefined') {
-                    extra.recovery = true;
+                    extra.recovery = '<?=$default_recovery_alerts?>';
                 }
 
                 if (typeof extra.options == 'undefined') {
@@ -392,7 +408,7 @@ if (Auth::user()->hasGlobalAdmin()) {
 
                 $("[name='override_query']").bootstrapSwitch('state', extra.options.override_query);
             } else {
-                $('#count').val('-1');
+                $('#count').val('<?=$default_max_alerts?>');
             }
         }
 
@@ -408,13 +424,13 @@ if (Auth::user()->hasGlobalAdmin()) {
 
         $("#maps").select2({
             width: '100%',
-            placeholder: "Devices or Groups",
+            placeholder: "Devices, Groups or Locations",
             ajax: {
                 url: 'ajax_list.php',
                 delay: 250,
                 data: function (params) {
                     return {
-                        type: 'devices_groups',
+                        type: 'devices_groups_locations',
                         search: params.term
                     };
                 }

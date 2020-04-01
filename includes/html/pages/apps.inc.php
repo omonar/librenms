@@ -250,6 +250,13 @@ $graphs['certificate'] = array(
     'age',
     'remaining_days',
 );
+$graphs['puppet-agent'] = array(
+    'last_run',
+    'changes',
+    'events',
+    'resources',
+    'time',
+);
 $graphs['mdadm'] = array(
     'level',
     'size',
@@ -310,6 +317,11 @@ $graphs['asterisk'] = array(
 );
 $graphs['hls'] = array(
     'multi_video',
+);
+$graphs['mailcow-postfix'] = array(
+    'emails',
+    'traffic',
+    'domains',
 );
 echo '<div class="panel panel-default">';
 echo '<div class="panel-heading">';
