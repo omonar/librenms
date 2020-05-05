@@ -9,7 +9,7 @@ $app_id = $app['app_id'];
 
 $options      = '-Oqv';
 $oid          = '.1.3.6.1.4.1.8072.1.3.2.3.1.2.5.115.109.97.114.116';
-$output = snmp_walk($device, $oid, $options);
+$output = snmp_get($device, $oid, $options);
 
 $lines = explode("\n", $output);
 
